@@ -62,3 +62,9 @@ Debug/obj/
 *.bak
 *.orig
 *~
+
+# macOS
+.DS_Store
+
+# MounRiver Studio session snapshots
+.mrs/dtu-ethernet-ble-*.mrs-workspace

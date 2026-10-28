@@ -10,9 +10,13 @@
 * microcontroller manufactured by Nanjing Qinheng Microelectronics.
 *******************************************************************************/
 #include "ch32v20x_it.h"
+#include "eth_driver.h"
+#include "transport_eth.h"
 
 void NMI_Handler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
 void HardFault_Handler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
+void ETH_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
+void TIM2_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
 
 /*********************************************************************
  * @fn      NMI_Handler
@@ -41,6 +45,32 @@ void HardFault_Handler(void)
   while (1)
   {
   }
+}
+
+/*********************************************************************
+ * @fn      ETH_IRQHandler
+ *
+ * @brief   This function handles Ethernet exception.
+ *
+ * @return  none
+ */
+void ETH_IRQHandler(void)
+{
+  WCHNET_ETHIsr();
+}
+
+/*********************************************************************
+ * @fn      TIM2_IRQHandler
+ *
+ * @brief   This function handles TIM2 exception (WCHNET 定时节拍).
+ *
+ * @return  none
+ */
+void TIM2_IRQHandler(void)
+{
+  WCHNET_TimeIsr(WCHNETTIMERPERIOD);
+  TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
+  g_sys_ms += WCHNETTIMERPERIOD;   /* 应用层毫秒节拍 */
 }
 
 
