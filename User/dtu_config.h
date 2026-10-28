@@ -64,7 +64,8 @@
 #define DTU_RECONNECT_MAX_MS        60000L      /* 重连最长延时(退避上限) */
 
 /* ============ 6. 传输开关 ============ */
-/* 1=启用 TLS 走 wss（需提供 TLS 引擎，见 wss_tls.c）；0=明文 ws 联调。 */
+/* 1=启用 TLS 走 wss（需已接入 mbedTLS 源码，见 User/mbedtls_config.h 与 README 第五节）；
+ * 0=明文 ws 联调（不依赖 mbedTLS，可先跑通整条 DTU 链路）。 */
 #define DTU_TLS                     1
 
 /* ============ 7. 采样周期：主循环节拍 ============ */

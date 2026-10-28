@@ -31,7 +31,9 @@ extern "C" {
 /* The number of sockets, the maximum is 31  */
 #define WCHNET_MAX_SOCKET_NUM         (WCHNET_NUM_IPRAW+WCHNET_NUM_UDP+WCHNET_NUM_TCP+WCHNET_NUM_TCP_LISTEN)
 
-#define WCHNET_TCP_MSS                1460  /* Size of TCP MSS*/
+/* MSS 由 1460 降到 1024：配合下方 RECE_BUF_LEN 一起降低静态 RAM 占用，
+ * 给 mbedTLS 运行时缓冲腾 heap（DTU 数据量很小，1024 足够；TLS 大证书记录由 TCP 分片重组）。 */
+#define WCHNET_TCP_MSS                1024  /* Size of TCP MSS*/
 
 #define WCHNET_NUM_POOL_BUF           (WCHNET_NUM_TCP*2+2)   /* The number of POOL BUFs, the number of receive queues */
 
@@ -40,7 +42,7 @@ extern "C" {
  */
 #define ETH_TXBUFNB                   1    /* The number of descriptors sent by the MAC  */
 
-#define ETH_RXBUFNB                   4    /* Number of MAC received descriptors  */
+#define ETH_RXBUFNB                   2    /* Number of MAC received descriptors (4->2 省 RAM) */
 
 #ifndef ETH_MAX_PACKET_SIZE
 #define ETH_RX_BUF_SZE                1520  /* MAC receive buffer length, an integer multiple of 4 */

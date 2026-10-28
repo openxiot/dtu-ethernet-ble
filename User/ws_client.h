@@ -26,8 +26,8 @@ struct ws_client;
 typedef void (*ws_frame_cb)(struct ws_client *ws, const uint8_t *data, uint32_t len);
 typedef void (*ws_close_cb)(struct ws_client *ws, uint16_t code);
 
-#define WS_FIFO_SIZE   1024        /* 接收流缓冲(含帧头+内容)，按需可改 */
-#define WS_TX_SIZE     320         /* 发送缓冲(含 4 掩码 + ≤300 内容)，覆盖心跳/查询应答/上报 */
+#define WS_FIFO_SIZE   512         /* 接收流缓冲(含帧头+内容)；DTU 收帧很小，512 足够 */
+#define WS_TX_SIZE     256         /* 发送缓冲(含 4 掩码 + 内容)，覆盖心跳/查询应答/上报 */
 
 typedef struct ws_client {
     ws_io_t  io;

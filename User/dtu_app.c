@@ -46,7 +46,7 @@ static uint32_t app_rand(void)
 }
 
 /* ==================== 应用状态机 ==================== */
-enum { ST_DOWN, ST_CONNECT, ST_OPEN };
+enum { ST_DOWN, ST_TLS, ST_WS, ST_OPEN };
 static int g_st;
 static uint32_t g_last_hb, g_last_csq, g_last_loc;
 static int32_t g_lon = DTU_LON_BASE;
@@ -153,28 +153,36 @@ void dtu_app_poll(void)
         if (g_st != ST_DOWN) {
             g_st = ST_DOWN;
             ws_client_close(&g_ws);
+            wss_tls_close();            /* 释放 TLS 上下文/缓冲，避免重连泄漏 heap */
             printf("transport down, wait reconnect\r\n");
         }
         return;
     }
 
     if (g_st == ST_DOWN) {
-        /* 传输在线，进入握手：先 TLS，后 WebSocket（合作式） */
-        g_st = ST_CONNECT;
-        g_ws.open = 0;
-        g_ws.hs_state = 0;       /* 重置握手状态机 */
+        /* 传输在线：初始化 TLS，进入 TLS 握手阶段（合作式，逐轮轮询） */
+        g_st = ST_TLS;
         wss_tls_init();
-        if (wss_tls_handshake() != 0) {
+        return;
+    }
+
+    if (g_st == ST_TLS) {
+        int tr = wss_tls_handshake();
+        if (tr == 1) return;            /* TLS 握手进行中，下轮再试 */
+        if (tr < 0) {
             printf("TLS handshake fail\r\n");
             wss_tls_close();
             transport_eth_reconnect();
             g_st = ST_DOWN;
             return;
         }
+        g_st = ST_WS;                   /* TLS 完成，进入 WebSocket 握手 */
+        g_ws.open = 0;
+        g_ws.hs_state = 0;              /* 重置 WS 握手状态机 */
         return;
     }
 
-    if (g_st == ST_CONNECT) {
+    if (g_st == ST_WS) {
         int hr = ws_client_handshake(&g_ws, DTU_HOST, g_port_str, g_ws_path);
         if (hr == 0) {
             g_st = ST_OPEN;

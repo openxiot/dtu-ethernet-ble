@@ -87,14 +87,26 @@ doc/说明.md              板卡说明、WCH-LINK 接线
 
 ---
 
-## 五、wss 的 TLS 说明（重要）
+## 五、wss 的 TLS（mbedTLS）
 
-WCHNET 协议栈只提供 TCP，**不含 TLS**。`wss`（443）需要一个 TLS 引擎，这是工程里唯一未随仓库提供、需接入的组件：
+WCHNET 仅提供 TCP、**不含 TLS**。`wss`(443) 需要 TLS。
 
-- `User/wss_tls.c` 提供了统一的 TLS 字节流接口；接入所需的 mbedTLS（建议裁剪配置、为省 32K SRAM 关闭证书链校验）或其它 TLS 实现，在该文件 `DTU_TLS=1` 分支实现即可，其余代码无需改动。
-- 先用**明文联调**：把 `DTU_TLS` 设 `0`、`DTU_PORT` 设服务端可用的 ws 端口，验证心跳/上报/应答整条链路，再接 TLS。
+- **mbedTLS 2.28.x LTS 已内置到工程 `mbedtls/`**（`include/` + `library/`，Apache-2.0，见 `mbedtls/LICENSE`）。`.cproject` 已配好：`mbedtls/include` 加入头文件路径，`mbedtls/library/*.c` 自动进编译。
+- 编译用**针对本服务端定制的完整精简配置**：`mbedtls/include/mbedtls/config.h` 已换成薄封装，真正配置在 `User/mbedtls_config.h`。只保留 TLS1.2 客户端 + `ECDHE-RSA` + `AES-128-GCM-SHA256` + RSA/ECP(secp256r1) + X509 解析 + 熵/DRBG，其余全关（依据实测：服务端为 RSA-2048 证书，TLS1.2 仅接受 ECDHE-RSA AES-GCM）。
+  - 记录缓冲：`IN_CONTENT_LEN=4096`（容纳服务器证书链 ~3.7KB）、`OUT_CONTENT_LEN=1024`。
+  - 设备不校验服务端证书（`VERIFY_NONE`），但仍解析证书取公钥验握手签名。
+- `DTU_TLS=1` 走 wss；`User/wss_tls.c` 已实现：
+  - 自定义 BIO：`net_send/net_recv` 桥接 WCHNET 的 `transport_tcp_read/write`，暂不可用/断开时返回 `MBEDTLS_ERR_SSL_WANT_READ/WRITE` 或 `CONN_EOF`；
+  - 合作式握手：`wss_tls_handshake()` 返回 `0=完成 / 1=进行中 / <0=失败`，主循环逐轮轮询（配 `dtu_app` 的 `ST_TLS→ST_WS→ST_OPEN`）；
+  - `MBEDTLS_SSL_VERIFY_NONE`（不校验证书链，省 RAM），裸机弱熵 `weak_entropy`（正式产品请接真随机源）。
 
-便携协议层（SHA-1/base64、WebSocket 握手/分帧/Ping-Pong、查询应答）已在本机脚本对本地 WebSocket 服务端做过联测。
+**⚠️ 内存/Flash 警告（务必读）：**
+`mbedtls/` 是完整库源码、默认配置体积较大；CH32V208 仅 **32K SRAM / 160K Flash**，默认配置很可能 **Flash 吃紧、且 16K 记录的 TLS 缓冲运行时放不下**。
+- 本版先把「库进工程、能编译」跑通；
+- 若 Flash/RAM 报超限，需把 `User/mbedtls_config.h` 升级成一份**真正精简的完整配置**（`MBEDTLS_CONFIG_FILE`，含：调小 `MBEDTLS_SSL_IN/OUT_CONTENT_LEN`、只留 ECDHE+AES-GCM-SHA256、去掉大量证书/套件），这要在真实工具链上编译联调才稳妥；
+- 终极选项：换更大 SRAM/Flash 型号（如 CH32V307/303，64K）。
+
+> `DTU_TLS=0` 为不依赖 mbedTLS 的明文联调分支，可先跑通 WebSocket 协议层整条链路（服务端需能接入 ws 明文口）。便携协议层（SHA-1/base64、WebSocket 握手/分帧/Ping-Pong、查询应答）已在本机对本地 WebSocket 服务端联测通过。
 
 ---
 
