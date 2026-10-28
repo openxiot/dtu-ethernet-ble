@@ -53,3 +53,12 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# MounRiver Studio build output
+obj/
+Debug/obj/
+
+# IDE-local / backup files
+*.bak
+*.orig
+*~
